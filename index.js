@@ -3,8 +3,15 @@ require('dotenv').config();
 
 const express = require('express');
 const mongoose = require('mongoose');
-
+const cors = require('cors');
 const app = express();
+
+
+// Allow requests from frontend
+app.use(cors({
+  origin: 'http://localhost:5173',
+  credentials: true, // only needed if using cookies/auth headers
+}));
 
 // Middleware to parse incoming JSON requests
 app.use(express.json());
