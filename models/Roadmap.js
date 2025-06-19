@@ -1,30 +1,45 @@
 const mongoose = require('mongoose');
 
-// Schema for a single roadmap item
+// Schema for roadmap items (features, ideas, etc.)
 const roadmapSchema = new mongoose.Schema({
   title: {
     type: String,
     required: true,
-    trim: true // remove accidental spaces
+    trim: true
   },
   description: {
     type: String,
-    required: true
+    default: ''
   },
   status: {
     type: String,
-    enum: ['pending', 'in-progress', 'completed'],
-    default: 'pending'
+    enum: ['Planned', 'In Progress', 'Completed'],
+    default: 'Planned'
+  },
+  category: {
+    type: String,
+    trim: true,
+    default: 'General'
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  },
+  votes: {
+    type: Number,
+    default: 0
+  },
+  author: {
+    type: String,
+    default: 'Admin'
   },
   upvotes: [
     {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User' // reference to users who upvoted
+      ref: 'User'
     }
   ]
-}, {
-  timestamps: true // adds createdAt and updatedAt automatically
 });
 
-// Export the model so we can use it in routes/controllers
+// Export the model for use in routes/controllers
 module.exports = mongoose.model('Roadmap', roadmapSchema);

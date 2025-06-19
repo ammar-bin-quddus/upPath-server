@@ -5,52 +5,64 @@ const verifyToken = require('../middleware/verifyToken');
 
 const router = express.Router();
 
-// Get all roadmap items (read-only)
+/**
+ * GET /api/roadmaps
+ * Optional query params: ?status=pending&sort=popular
+ * Fetch all roadmap items (read-only)
+ */
 router.get('/', async (req, res) => {
   try {
-    const items = await Roadmap.find().lean();
-    res.json(items);
+    const { status, sort } = req.query;
+
+    const filter = status ? { status } : {};
+    const sortOption = sort === 'popular' ? { votes: -1 } : { createdAt: -1 };
+
+    const roadmaps = await Roadmap.find(filter).sort(sortOption).lean();
+    res.json(roadmaps);
   } catch (err) {
-    console.error('Failed to fetch roadmap items:', err.message);
-    res.status(500).json({ message: 'Something went wrong.' });
+    console.error('Error fetching roadmaps:', err.message);
+    res.status(500).json({ message: 'Failed to load roadmap items.' });
   }
 });
 
-// Upvote a roadmap item
+
+/**
+ * PUT /api/roadmaps/:id/upvote
+ * Upvote a roadmap item (auth required)
+ */
 router.put('/:id/upvote', verifyToken, async (req, res) => {
   try {
     const roadmap = await Roadmap.findById(req.params.id);
-    if (!roadmap) {
-      return res.status(404).json({ message: 'Roadmap not found' });
-    }
+    if (!roadmap) return res.status(404).json({ message: 'Roadmap item not found.' });
 
     if (roadmap.upvotes.includes(req.user.id)) {
       return res.status(400).json({ message: 'You already upvoted this item.' });
     }
 
     roadmap.upvotes.push(req.user.id);
+    roadmap.votes = roadmap.upvotes.length;
     await roadmap.save();
 
-    res.json({
-      message: 'Upvoted successfully.',
-      upvotes: roadmap.upvotes.length
-    });
+    res.json({ message: 'Upvoted successfully.', votes: roadmap.votes });
   } catch (err) {
     console.error('Upvote error:', err.message);
-    res.status(500).json({ message: 'Could not upvote item.' });
+    res.status(500).json({ message: 'Failed to upvote item.' });
   }
 });
 
-// Add a comment to a roadmap item
+/**
+ * POST /api/roadmaps/:id/comments
+ * Add a comment or reply (auth required)
+ */
 router.post('/:id/comments', verifyToken, async (req, res) => {
   const { text, parentId } = req.body;
 
   try {
-    // Prevent deep nesting (max 3 levels)
+    // Check if this is a nested reply and enforce max depth
     if (parentId) {
       let depth = 1;
       let current = await Comment.findById(parentId);
-      if (!current) return res.status(404).json({ message: 'Parent comment not found' });
+      if (!current) return res.status(404).json({ message: 'Parent comment not found.' });
 
       while (current.parentId) {
         current = await Comment.findById(current.parentId);
@@ -59,7 +71,7 @@ router.post('/:id/comments', verifyToken, async (req, res) => {
       }
 
       if (depth >= 3) {
-        return res.status(400).json({ message: 'Maximum reply depth (3 levels) reached' });
+        return res.status(400).json({ message: 'Max reply depth (3 levels) reached.' });
       }
     }
 
@@ -73,29 +85,35 @@ router.post('/:id/comments', verifyToken, async (req, res) => {
     res.status(201).json(newComment);
   } catch (err) {
     console.error('Comment creation failed:', err.message);
-    res.status(500).json({ message: 'Could not add comment.' });
+    res.status(500).json({ message: 'Failed to post comment.' });
   }
 });
 
-// Get all comments for a roadmap item
+/**
+ * GET /api/roadmaps/:id/comments
+ * Get all comments for a roadmap item
+ */
 router.get('/:id/comments', async (req, res) => {
   try {
     const comments = await Comment.find({ roadmapId: req.params.id })
       .populate('author', 'name')
-      .sort({ createdAt: 1 }); // sort oldest to newest
+      .sort({ createdAt: 1 });
 
     res.json(comments);
   } catch (err) {
-    console.error('Failed to fetch comments:', err.message);
-    res.status(500).json({ message: 'Unable to load comments.' });
+    console.error('Error fetching comments:', err.message);
+    res.status(500).json({ message: 'Failed to load comments.' });
   }
 });
 
-// Edit a comment
+/**
+ * PUT /api/roadmaps/comments/:commentId
+ * Edit a comment (auth required)
+ */
 router.put('/comments/:commentId', verifyToken, async (req, res) => {
   try {
     const comment = await Comment.findById(req.params.commentId);
-    if (!comment) return res.status(404).json({ message: 'Comment not found' });
+    if (!comment) return res.status(404).json({ message: 'Comment not found.' });
 
     if (comment.author.toString() !== req.user.id) {
       return res.status(403).json({ message: 'You are not allowed to edit this comment.' });
@@ -106,16 +124,19 @@ router.put('/comments/:commentId', verifyToken, async (req, res) => {
 
     res.json(comment);
   } catch (err) {
-    console.error('Failed to update comment:', err.message);
-    res.status(500).json({ message: 'Could not update comment.' });
+    console.error('Error updating comment:', err.message);
+    res.status(500).json({ message: 'Failed to update comment.' });
   }
 });
 
-// Delete a comment
+/**
+ * DELETE /api/roadmaps/comments/:commentId
+ * Delete a comment (auth required)
+ */
 router.delete('/comments/:commentId', verifyToken, async (req, res) => {
   try {
     const comment = await Comment.findById(req.params.commentId);
-    if (!comment) return res.status(404).json({ message: 'Comment not found' });
+    if (!comment) return res.status(404).json({ message: 'Comment not found.' });
 
     if (comment.author.toString() !== req.user.id) {
       return res.status(403).json({ message: 'You are not allowed to delete this comment.' });
@@ -124,8 +145,8 @@ router.delete('/comments/:commentId', verifyToken, async (req, res) => {
     await Comment.findByIdAndDelete(req.params.commentId);
     res.json({ message: 'Comment deleted successfully.' });
   } catch (err) {
-    console.error('Comment deletion failed:', err.message);
-    res.status(500).json({ message: 'Could not delete comment.' });
+    console.error('Error deleting comment:', err.message);
+    res.status(500).json({ message: 'Failed to delete comment.' });
   }
 });
 

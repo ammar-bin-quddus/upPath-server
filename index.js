@@ -25,6 +25,11 @@ mongoose.connect(
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/roadmaps', require('./routes/roadmap'));
 
+// for catch and debug 404 errors
+app.use((req, res) => {
+  res.status(404).json({ message: 'Route not found', path: req.originalUrl });
+});
+
 // Start the server
 app.listen(PORT, () => {
   console.log(`upPath Server is running on port: ${PORT}`);
