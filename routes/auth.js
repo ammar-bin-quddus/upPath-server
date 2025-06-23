@@ -1,73 +1,74 @@
-const express = require('express');
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const express = require("express");
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
+const User = require("../models/User");
 
 const router = express.Router();
 
 // Signup Route
-router.post('/signup', async (req, res) => {
+router.post("/users", async (req, res) => {
   const { name, email, password } = req.body;
 
   try {
     // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ message: 'User already registered with this email.' });
+      return res
+        .status(400)
+        .json({ message: "User already registered with this email." });
     }
 
     // Hash the password before saving
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword =
+      password === "google" ? "google" : await bcrypt.hash(password, 10);
 
     // Create and save the new user
     const newUser = await User.create({
       name,
       email,
-      password: hashedPassword
+      password: hashedPassword,
     });
-
-    // Generate JWT token
-    const token = jwt.sign(
-      { id: newUser._id, email: newUser.email },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' } // token expires in 7 days
-    );
-
-    res.status(201).json({ token });
+    
   } catch (err) {
-    console.error('Signup error:', err.message);
-    res.status(500).json({ message: 'Something went wrong during signup.' });
+    console.error("Signup error:", err.message);
+    res.status(500).json({ message: "Something went wrong during signup." });
   }
 });
 
-// Login Route
-router.post('/login', async (req, res) => {
-  const { email, password } = req.body;
+// generate jwt token
+
+router.post("/jwt", async (req, res) => {
+  const { email } = req.body;
+
+  // Early exit if email is missing
+  if (!email) {
+    return res
+      .status(400)
+      .json({ message: "Email is required to generate a token." });
+  }
 
   try {
-    // Find user by email
+    // Check if the user exists
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(401).json({ message: 'Invalid email or password.' });
+      return res
+        .status(404)
+        .json({ message: "No user found with that email." });
     }
 
-    // Compare submitted password with stored hash
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid email or password.' });
-    }
-
-    // Generate JWT token
+    // Create a signed JWT
     const token = jwt.sign(
       { id: user._id, email: user.email },
       process.env.JWT_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: "7d" } // 7-day token validity
     );
 
-    res.json({ token });
+    res.status(200).json({ token });
   } catch (err) {
-    console.error('Login error:', err.message);
-    res.status(500).json({ message: 'Login failed. Please try again.' });
+    console.error("Error generating JWT:", err.message || err);
+    res
+      .status(500)
+      .json({ message: "Something went wrong while creating token." });
   }
 });
 
