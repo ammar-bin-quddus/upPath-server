@@ -9,14 +9,13 @@ const app = express();
 
 // Allow requests from frontend
 app.use(cors({
-  origin: 'http://localhost:5173',
-  credentials: true, // only needed if using cookies/auth headers
+  origin: ['http://localhost:5173', 'https://uppath-dff52.web.app'],
+  credentials: true,
 }));
 
 // Middleware to parse incoming JSON requests
 app.use(express.json());
 
-// Use the port from .env or fallback to 3000
 const PORT = process.env.PORT || 3000;
 
 // Connect to MongoDB using credentials from environment variables

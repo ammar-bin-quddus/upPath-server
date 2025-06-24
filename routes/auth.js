@@ -14,7 +14,7 @@ router.post("/users", async (req, res) => {
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res
-        .status(400)
+        .status(200)
         .json({ message: "User already registered with this email." });
     }
 
@@ -28,7 +28,9 @@ router.post("/users", async (req, res) => {
       email,
       password: hashedPassword,
     });
-    
+    res
+      .status(201)
+      .json({ message: "User created successfully", user: newUser });
   } catch (err) {
     console.error("Signup error:", err.message);
     res.status(500).json({ message: "Something went wrong during signup." });
@@ -37,38 +39,33 @@ router.post("/users", async (req, res) => {
 
 // generate jwt token
 
-router.post("/jwt", async (req, res) => {
+router.post('/jwt', async (req, res) => {
   const { email } = req.body;
-  console.log(email);
-  // Early exit if email is missing
+
   if (!email) {
-    return res
-      .status(400)
-      .json({ message: "Email is required to generate a token." });
+    return res.status(400).json({ message: 'Email is required to generate JWT.' });
   }
 
   try {
-    // Check if the user exists
     const user = await User.findOne({ email });
-    if (user) {
-      return res
-        .status(404)
-        .json({ message: "email already exist" });
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
     }
 
-    // Create a signed JWT
-    const token = jwt.sign(
-      { email: email },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" } // 7-day token validity
-    );
+    // Create JWT payload including user's MongoDB ObjectId as 'id'
+    const payload = {
+      id: user._id.toString(),
+      email: user.email,
+    };
+
+    // Sign the token with secret and 7 days expiration
+    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
 
     res.status(200).json({ token });
   } catch (err) {
-    console.error("Error generating JWT:", err.message || err);
-    res
-      .status(500)
-      .json({ message: "Something went wrong while creating token." });
+    console.error('JWT generation error:', err.message);
+    res.status(500).json({ message: 'Could not generate token.' });
   }
 });
 

@@ -8,12 +8,11 @@ const router = express.Router();
 /**
  * GET /api/roadmaps
  * Optional query params: ?status=pending&sort=popular
- * Fetch all roadmap items (read-only)
+ * Fetch all roadmap items
  */
 router.get('/', async (req, res) => {
   try {
     const { status, sort } = req.query;
-
     const filter = status ? { status } : {};
     const sortOption = sort === 'popular' ? { votes: -1 } : { createdAt: -1 };
 
@@ -25,6 +24,22 @@ router.get('/', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/roadmaps/:id
+ * Get a single roadmap item by ID
+ */
+router.get('/:id', async (req, res) => {
+  try {
+    const roadmap = await Roadmap.findById(req.params.id);
+    if (!roadmap) {
+      return res.status(404).json({ message: 'Roadmap item not found.' });
+    }
+    res.json(roadmap);
+  } catch (err) {
+    console.error('Error fetching single roadmap:', err.message);
+    res.status(500).json({ message: 'Something went wrong.' });
+  }
+});
 
 /**
  * PUT /api/roadmaps/:id/upvote
@@ -52,13 +67,14 @@ router.put('/:id/upvote', verifyToken, async (req, res) => {
 
 /**
  * POST /api/roadmaps/:id/comments
- * Add a comment or reply (auth required)
+ * Add a new comment or reply (auth required)
  */
 router.post('/:id/comments', verifyToken, async (req, res) => {
+  console.log('req.user:', req.user);
   const { text, parentId } = req.body;
 
   try {
-    // Check if this is a nested reply and enforce max depth
+    // Check nesting depth if it's a reply
     if (parentId) {
       let depth = 1;
       let current = await Comment.findById(parentId);
@@ -116,7 +132,7 @@ router.put('/comments/:commentId', verifyToken, async (req, res) => {
     if (!comment) return res.status(404).json({ message: 'Comment not found.' });
 
     if (comment.author.toString() !== req.user.id) {
-      return res.status(403).json({ message: 'You are not allowed to edit this comment.' });
+      return res.status(403).json({ message: 'Not allowed to edit this comment.' });
     }
 
     comment.text = req.body.text;
@@ -139,7 +155,7 @@ router.delete('/comments/:commentId', verifyToken, async (req, res) => {
     if (!comment) return res.status(404).json({ message: 'Comment not found.' });
 
     if (comment.author.toString() !== req.user.id) {
-      return res.status(403).json({ message: 'You are not allowed to delete this comment.' });
+      return res.status(403).json({ message: 'Not allowed to delete this comment.' });
     }
 
     await Comment.findByIdAndDelete(req.params.commentId);
