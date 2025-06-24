@@ -5,7 +5,7 @@ const User = require("../models/User");
 
 const router = express.Router();
 
-// Signup Route
+// users Route
 router.post("/users", async (req, res) => {
   const { name, email, password } = req.body;
 
@@ -39,7 +39,7 @@ router.post("/users", async (req, res) => {
 
 router.post("/jwt", async (req, res) => {
   const { email } = req.body;
-
+  console.log(email);
   // Early exit if email is missing
   if (!email) {
     return res
@@ -50,15 +50,15 @@ router.post("/jwt", async (req, res) => {
   try {
     // Check if the user exists
     const user = await User.findOne({ email });
-    if (!user) {
+    if (user) {
       return res
         .status(404)
-        .json({ message: "No user found with that email." });
+        .json({ message: "email already exist" });
     }
 
     // Create a signed JWT
     const token = jwt.sign(
-      { id: user._id, email: user.email },
+      { email: email },
       process.env.JWT_SECRET,
       { expiresIn: "7d" } // 7-day token validity
     );
